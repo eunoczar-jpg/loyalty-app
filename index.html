@@ -55,47 +55,54 @@
   <div id="login-section">
     <input type="email" id="email" placeholder="Email" />
     <input type="password" id="password" placeholder="Password" />
-    <button onclick="login()">Login</button>
-    <button onclick="signup()">Sign Up</button>
+    <button id="login-btn">Login</button>
+    <button id="signup-btn">Sign Up</button>
   </div>
 
   <div id="dashboard" style="display:none">
     <p>Welcome! 👋</p>
     <p>Visits: <span id="visit-count">0</span></p>
     <input type="text" id="code-input" placeholder="Enter your code here..." style="text-transform:uppercase" />
-    <button onclick="redeemCode()">Redeem Code</button>
-    <button onclick="logout()" style="background:#e53935">Logout</button>
+    <button id="redeem-btn">Redeem Code</button>
+    <button id="logout-btn" style="background:#e53935">Logout</button>
   </div>
 
   <script>
-    const supabase = window.supabase.createClient(
-      'https://gnhnakfppfjhccousgds.supabase.co',
-      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImduaG5ha2ZwcGZqaGNjb3VzZ2RzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE0MjQwMDgsImV4cCI6MjA5NzAwMDAwOH0.-tkClG-l39YX7ATxdpfPHo5VF9aZAXQPU37FA_q7S0Y'
-    );
+    const SUPABASE_URL = 'https://gnhnakfppfjhccousgds.supabase.co';
+    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImduaG5ha2ZwcGZqaGNjb3VzZ2RzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE0MjQwMDgsImV4cCI6MjA5NzAwMDAwOH0.-tkClG-l39YX7ATxdpfPHo5VF9aZAXQPU37FA_q7S0Y';
+
+    const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+    document.addEventListener('DOMContentLoaded', function() {
+      document.getElementById('login-btn').addEventListener('click', login);
+      document.getElementById('signup-btn').addEventListener('click', signup);
+      document.getElementById('redeem-btn').addEventListener('click', redeemCode);
+      document.getElementById('logout-btn').addEventListener('click', logout);
+    });
 
     async function signup() {
       const email = document.getElementById('email').value;
       const password = document.getElementById('password').value;
-      const { error } = await supabase.auth.signUp({ email, password });
+      const { error } = await client.auth.signUp({ email, password });
       if (error) alert('Error: ' + error.message);
-      else alert('Account created! Check your email to confirm 👍');
+      else alert('Account created! 👍');
     }
 
     async function login() {
       const email = document.getElementById('email').value;
       const password = document.getElementById('password').value;
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      const { error } = await client.auth.signInWithPassword({ email, password });
       if (error) alert('Error: ' + error.message);
     }
 
     async function logout() {
-      await supabase.auth.signOut();
+      await client.auth.signOut();
       document.getElementById('login-section').style.display = 'block';
       document.getElementById('dashboard').style.display = 'none';
     }
 
     async function loadVisits(email) {
-      const { data } = await supabase
+      const { data } = await client
         .from('customers')
         .select('visits')
         .eq('email', email)
@@ -105,12 +112,11 @@
 
     async function redeemCode() {
       const code = document.getElementById('code-input').value.toUpperCase().trim();
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { user } } = await client.auth.getUser();
 
       if (!code) { alert('Please enter a code!'); return; }
 
-      // check code exists and unused
-      const { data: codeData } = await supabase
+      const { data: codeData } = await client
         .from('codes')
         .select('*')
         .eq('id', code)
@@ -119,31 +125,28 @@
       if (!codeData) { alert('❌ Invalid code!'); return; }
       if (codeData.used) { alert('❌ This code has already been used!'); return; }
 
-      // mark code as used
-      await supabase.from('codes').update({
+      await client.from('codes').update({
         used: true,
         used_by: user.email,
         used_at: new Date().toISOString()
       }).eq('id', code);
 
-      // add visit
-      const { data: customer } = await supabase
+      const { data: customer } = await client
         .from('customers')
         .select('*')
         .eq('email', user.email)
         .single();
 
       if (customer) {
-        await supabase.from('customers')
+        await client.from('customers')
           .update({ visits: customer.visits + 1 })
           .eq('email', user.email);
       } else {
-        await supabase.from('customers')
+        await client.from('customers')
           .insert({ email: user.email, visits: 1 });
       }
 
-      // log to archive
-      await supabase.from('archive').insert({
+      await client.from('archive').insert({
         email: user.email,
         code: code,
         visited_at: new Date().toISOString()
@@ -154,23 +157,21 @@
       loadVisits(user.email);
     }
 
-    // watch login state
-    supabase.auth.onAuthStateChange(async (event, session) => {
+    client.auth.onAuthStateChange(async (event, session) => {
       if (session) {
         document.getElementById('login-section').style.display = 'none';
         document.getElementById('dashboard').style.display = 'block';
 
         const user = session.user;
 
-        // create customer if first time
-        const { data: existing } = await supabase
+        const { data: existing } = await client
           .from('customers')
           .select('*')
           .eq('email', user.email)
           .single();
 
         if (!existing) {
-          await supabase.from('customers').insert({ email: user.email, visits: 0 });
+          await client.from('customers').insert({ email: user.email, visits: 0 });
         }
 
         loadVisits(user.email);
