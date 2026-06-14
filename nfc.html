@@ -69,15 +69,15 @@
   <p>Copy the code below and enter it in your loyalty card page!</p>
 
   <div id="code-display">...</div>
-  <button id="copy-btn" onclick="copyCode()" disabled>Copy Code</button>
+  <button id="copy-btn" disabled>Copy Code</button>
   <div id="message">✅ Code Copied!</div>
   <div id="countdown">Closing in <span id="timer">5</span> seconds...</div>
 
   <script>
-    const supabase = window.supabase.createClient(
-      'https://gnhnakfppfjhccousgds.supabase.co',
-      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImduaG5ha2ZwcGZqaGNjb3VzZ2RzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE0MjQwMDgsImV4cCI6MjA5NzAwMDAwOH0.-tkClG-l39YX7ATxdpfPHo5VF9aZAXQPU37FA_q7S0Y'
-    );
+    const SUPABASE_URL = 'https://gnhnakfppfjhccousgds.supabase.co';
+    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImduaG5ha2ZwcGZqaGNjb3VzZ2RzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE0MjQwMDgsImV4cCI6MjA5NzAwMDAwOH0.-tkClG-l39YX7ATxdpfPHo5VF9aZAXQPU37FA_q7S0Y';
+
+    const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
     let generatedCode = '';
 
@@ -93,7 +93,7 @@
     async function init() {
       generatedCode = generateCode();
 
-      await supabase.from('codes').insert({
+      await db.from('codes').insert({
         id: generatedCode,
         used: false,
         created_at: new Date().toISOString()
@@ -103,28 +103,30 @@
       document.getElementById('copy-btn').disabled = false;
     }
 
-    function copyCode() {
-      navigator.clipboard.writeText(generatedCode).then(() => {
-        document.getElementById('copy-btn').disabled = true;
-        document.getElementById('copy-btn').textContent = 'Copied!';
-        document.getElementById('message').style.display = 'block';
-        document.getElementById('countdown').style.display = 'block';
+    document.addEventListener('DOMContentLoaded', function() {
+      document.getElementById('copy-btn').addEventListener('click', function() {
+        navigator.clipboard.writeText(generatedCode).then(() => {
+          document.getElementById('copy-btn').disabled = true;
+          document.getElementById('copy-btn').textContent = 'Copied!';
+          document.getElementById('message').style.display = 'block';
+          document.getElementById('countdown').style.display = 'block';
 
-        let seconds = 5;
-        const interval = setInterval(() => {
-          seconds--;
-          document.getElementById('timer').textContent = seconds;
-          if (seconds <= 0) {
-            clearInterval(interval);
-            window.close();
-          }
-        }, 1000);
-      }).catch(() => {
-        alert('Your code is: ' + generatedCode + '\n\nCopy it manually!');
+          let seconds = 5;
+          const interval = setInterval(() => {
+            seconds--;
+            document.getElementById('timer').textContent = seconds;
+            if (seconds <= 0) {
+              clearInterval(interval);
+              window.close();
+            }
+          }, 1000);
+        }).catch(() => {
+          alert('Your code is: ' + generatedCode + '\n\nCopy it manually!');
+        });
       });
-    }
 
-    init();
+      init();
+    });
   </script>
 
 </body>
