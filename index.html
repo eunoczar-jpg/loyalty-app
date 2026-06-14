@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>My Loyalty App</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+  <style>
+    body {
+      font-family: sans-serif;
+      padding: 20px;
+      max-width: 500px;
+      margin: auto;
+    }
+
+    input {
+      display: block;
+      width: 100%;
+      padding: 12px;
+      margin-bottom: 10px;
+      font-size: 16px;
+      box-sizing: border-box;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+    }
+
+    button {
+      width: 100%;
+      padding: 12px;
+      margin-bottom: 10px;
+      font-size: 16px;
+      border: none;
+      border-radius: 8px;
+      background: #4CAF50;
+      color: white;
+      cursor: pointer;
+    }
+
+    button:hover { background: #45a049; }
+
+    #dashboard { text-align: center; }
+
+    #visit-count {
+      font-size: 48px;
+      font-weight: bold;
+      display: block;
+      margin: 20px 0;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>Loyalty Card</h1>
+
+  <div id="login-section">
+    <input type="email" id="email" placeholder="Email" />
+    <input type="password" id="password" placeholder="Password" />
+    <button onclick="login()">Login</button>
+    <button onclick="signup()">Sign Up</button>
+  </div>
+
+  <div id="dashboard" style="display:none">
+    <p>Welcome! 👋</p>
+    <p>Visits: <span id="visit-count">0</span></p>
+    <input type="text" id="code-input" placeholder="Enter your code here..." style="text-transform:uppercase" />
+    <button onclick="redeemCode()">Redeem Code</button>
+    <button onclick="logout()" style="background:#e53935">Logout</button>
+  </div>
+
+  <script>
+    const supabase = window.supabase.createClient(
+      'https://gnhnakfppfjhccousgds.supabase.co',
+      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImduaG5ha2ZwcGZqaGNjb3VzZ2RzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE0MjQwMDgsImV4cCI6MjA5NzAwMDAwOH0.-tkClG-l39YX7ATxdpfPHo5VF9aZAXQPU37FA_q7S0Y'
+    );
+
+    async function signup() {
+      const email = document.getElementById('email').value;
+      const password = document.getElementById('password').value;
+      const { error } = await supabase.auth.signUp({ email, password });
+      if (error) alert('Error: ' + error.message);
+      else alert('Account created! Check your email to confirm 👍');
+    }
+
+    async function login() {
+      const email = document.getElementById('email').value;
+      const password = document.getElementById('password').value;
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) alert('Error: ' + error.message);
+    }
+
+    async function logout() {
+      await supabase.auth.signOut();
+      document.getElementById('login-section').style.display = 'block';
+      document.getElementById('dashboard').style.display = 'none';
+    }
+
+    async function loadVisits(email) {
+      const { data } = await supabase
+        .from('customers')
+        .select('visits')
+        .eq('email', email)
+        .single();
+      document.getElementById('visit-count').textContent = data ? data.visits : 0;
+    }
+
+    async function redeemCode() {
+      const code = document.getElementById('code-input').value.toUpperCase().trim();
+      const { data: { user } } = await supabase.auth.getUser();
+
+      if (!code) { alert('Please enter a code!'); return; }
+
+      // check code exists and unused
+      const { data: codeData } = await supabase
+        .from('codes')
+        .select('*')
+        .eq('id', code)
+        .single();
+
+      if (!codeData) { alert('❌ Invalid code!'); return; }
+      if (codeData.used) { alert('❌ This code has already been used!'); return; }
+
+      // mark code as used
+      await supabase.from('codes').update({
+        used: true,
+        used_by: user.email,
+        used_at: new Date().toISOString()
+      }).eq('id', code);
+
+      // add visit
+      const { data: customer } = await supabase
+        .from('customers')
+        .select('*')
+        .eq('email', user.email)
+        .single();
+
+      if (customer) {
+        await supabase.from('customers')
+          .update({ visits: customer.visits + 1 })
+          .eq('email', user.email);
+      } else {
+        await supabase.from('customers')
+          .insert({ email: user.email, visits: 1 });
+      }
+
+      // log to archive
+      await supabase.from('archive').insert({
+        email: user.email,
+        code: code,
+        visited_at: new Date().toISOString()
+      });
+
+      alert('✅ Visit logged! Thanks for coming in!');
+      document.getElementById('code-input').value = '';
+      loadVisits(user.email);
+    }
+
+    // watch login state
+    supabase.auth.onAuthStateChange(async (event, session) => {
+      if (session) {
+        document.getElementById('login-section').style.display = 'none';
+        document.getElementById('dashboard').style.display = 'block';
+
+        const user = session.user;
+
+        // create customer if first time
+        const { data: existing } = await supabase
+          .from('customers')
+          .select('*')
+          .eq('email', user.email)
+          .single();
+
+        if (!existing) {
+          await supabase.from('customers').insert({ email: user.email, visits: 0 });
+        }
+
+        loadVisits(user.email);
+      } else {
+        document.getElementById('login-section').style.display = 'block';
+        document.getElementById('dashboard').style.display = 'none';
+      }
+    });
+  </script>
+
+</body>
+</html>
