@@ -37,7 +37,6 @@
     }
 
     button:hover { background: #45a049; }
-
     #dashboard { text-align: center; }
 
     #visit-count {
@@ -145,7 +144,6 @@
     </div>
   </div>
 
-  <!-- CLAIM MODAL -->
   <div id="claim-modal">
     <div id="claim-box">
       <h2>☕ Free Coffee!</h2>
@@ -163,19 +161,32 @@
     const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
     let selectedRewardId = null;
+    let currentUser = null;
 
-    // restore session on refresh
-    client.auth.getSession().then(({ data: { session } }) => {
+    async function init() {
+      const { data: { session } } = await client.auth.getSession();
+
       document.getElementById('loading').style.display = 'none';
+
       if (session) {
-        document.getElementById('login-section').style.display = 'none';
-        document.getElementById('dashboard').style.display = 'block';
-        loadVisits(session.user.email);
-        loadRewards(session.user.email);
+        currentUser = session.user;
+        showDashboard();
       } else {
-        document.getElementById('login-section').style.display = 'block';
+        showLogin();
       }
-    });
+    }
+
+    function showDashboard() {
+      document.getElementById('login-section').style.display = 'none';
+      document.getElementById('dashboard').style.display = 'block';
+      loadVisits(currentUser.email);
+      loadRewards(currentUser.email);
+    }
+
+    function showLogin() {
+      document.getElementById('login-section').style.display = 'block';
+      document.getElementById('dashboard').style.display = 'none';
+    }
 
     document.addEventListener('DOMContentLoaded', function() {
       document.getElementById('login-btn').addEventListener('click', login);
@@ -184,6 +195,7 @@
       document.getElementById('logout-btn').addEventListener('click', logout);
       document.getElementById('claim-btn').addEventListener('click', claimReward);
       document.getElementById('back-btn').addEventListener('click', closeModal);
+      init();
     });
 
     async function signup() {
@@ -197,23 +209,31 @@
     async function login() {
       const email = document.getElementById('email').value;
       const password = document.getElementById('password').value;
-      const { error } = await client.auth.signInWithPassword({ email, password });
-      if (error) alert('Error: ' + error.message);
+      const { data, error } = await client.auth.signInWithPassword({ email, password });
+      if (error) { alert('Error: ' + error.message); return; }
+      currentUser = data.user;
+      showDashboard();
     }
 
     async function logout() {
       await client.auth.signOut();
-      document.getElementById('login-section').style.display = 'block';
-      document.getElementById('dashboard').style.display = 'none';
+      currentUser = null;
+      showLogin();
     }
 
     async function loadVisits(email) {
-      const { data } = await client
+      const { data, error } = await client
         .from('customers')
         .select('visits')
         .eq('email', email)
         .single();
-      document.getElementById('visit-count').textContent = data ? data.visits : 0;
+      if (error) {
+        // customer doesn't exist yet, create them
+        await client.from('customers').insert({ email: email, visits: 0 });
+        document.getElementById('visit-count').textContent = 0;
+      } else {
+        document.getElementById('visit-count').textContent = data.visits;
+      }
     }
 
     async function loadRewards(email) {
@@ -274,16 +294,12 @@
         claimed: true,
         claimed_at: new Date().toISOString()
       }).eq('id', selectedRewardId);
-
       closeModal();
-      const { data: { session } } = await client.auth.getSession();
-      loadRewards(session.user.email);
+      loadRewards(currentUser.email);
     }
 
     async function redeemCode() {
       const userCode = document.getElementById('code-input').value.toUpperCase().trim();
-      const { data: { session } } = await client.auth.getSession();
-      const user = session.user;
 
       if (!userCode) { alert('Please enter a code!'); return; }
 
@@ -306,14 +322,14 @@
 
       await client.from('codes').update({
         used: true,
-        used_by: user.email,
+        used_by: currentUser.email,
         used_at: new Date().toISOString()
       }).eq('id', userCode);
 
       const { data: customer } = await client
         .from('customers')
         .select('*')
-        .eq('email', user.email)
+        .eq('email', currentUser.email)
         .single();
 
       let newVisits = 1;
@@ -321,15 +337,15 @@
         newVisits = customer.visits + 1;
         await client.from('customers')
           .update({ visits: newVisits })
-          .eq('email', user.email);
+          .eq('email', currentUser.email);
       } else {
         await client.from('customers')
-          .insert({ email: user.email, visits: 1 });
+          .insert({ email: currentUser.email, visits: 1 });
       }
 
       if (newVisits % 5 === 0) {
         await client.from('rewards').insert({
-          email: user.email,
+          email: currentUser.email,
           earned_at: new Date().toISOString(),
           claimed: false
         });
@@ -339,40 +355,15 @@
       }
 
       await client.from('archive').insert({
-        email: user.email,
+        email: currentUser.email,
         code: userCode,
         visited_at: new Date().toISOString()
       });
 
       document.getElementById('code-input').value = '';
-      loadVisits(user.email);
-      loadRewards(user.email);
+      loadVisits(currentUser.email);
+      loadRewards(currentUser.email);
     }
-
-    client.auth.onAuthStateChange(async (event, session) => {
-      if (session) {
-        document.getElementById('loading').style.display = 'none';
-        document.getElementById('login-section').style.display = 'none';
-        document.getElementById('dashboard').style.display = 'block';
-
-        const { data: existing } = await client
-          .from('customers')
-          .select('*')
-          .eq('email', session.user.email)
-          .single();
-
-        if (!existing) {
-          await client.from('customers').insert({ email: session.user.email, visits: 0 });
-        }
-
-        loadVisits(session.user.email);
-        loadRewards(session.user.email);
-      } else {
-        document.getElementById('loading').style.display = 'none';
-        document.getElementById('login-section').style.display = 'block';
-        document.getElementById('dashboard').style.display = 'none';
-      }
-    });
   </script>
 
 </body>
