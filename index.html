@@ -106,13 +106,21 @@
     #claim-box p { color: #666; margin-bottom: 20px; }
     #claim-btn { background: #4CAF50; }
     #back-btn { background: #999; }
+
+    #loading {
+      text-align: center;
+      margin-top: 40px;
+      color: #999;
+    }
   </style>
 </head>
 <body>
 
   <h1>Loyalty Card</h1>
 
-  <div id="login-section">
+  <p id="loading">Loading...</p>
+
+  <div id="login-section" style="display:none">
     <input type="email" id="email" placeholder="Email" />
     <input type="password" id="password" placeholder="Password" />
     <button id="login-btn">Login</button>
@@ -158,11 +166,14 @@
 
     // restore session on refresh
     client.auth.getSession().then(({ data: { session } }) => {
+      document.getElementById('loading').style.display = 'none';
       if (session) {
         document.getElementById('login-section').style.display = 'none';
         document.getElementById('dashboard').style.display = 'block';
         loadVisits(session.user.email);
         loadRewards(session.user.email);
+      } else {
+        document.getElementById('login-section').style.display = 'block';
       }
     });
 
@@ -340,6 +351,7 @@
 
     client.auth.onAuthStateChange(async (event, session) => {
       if (session) {
+        document.getElementById('loading').style.display = 'none';
         document.getElementById('login-section').style.display = 'none';
         document.getElementById('dashboard').style.display = 'block';
 
@@ -356,6 +368,7 @@
         loadVisits(session.user.email);
         loadRewards(session.user.email);
       } else {
+        document.getElementById('loading').style.display = 'none';
         document.getElementById('login-section').style.display = 'block';
         document.getElementById('dashboard').style.display = 'none';
       }
