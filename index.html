@@ -46,6 +46,68 @@
       display: block;
       margin: 20px 0;
     }
+
+    .reward-item {
+      background: #fff8e1;
+      border: 1px solid #ffe082;
+      border-radius: 8px;
+      padding: 12px;
+      margin-bottom: 8px;
+      cursor: pointer;
+      text-align: left;
+    }
+
+    .reward-item:hover { background: #fff3cd; }
+
+    .claimed-item {
+      background: #f5f5f5;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      padding: 12px;
+      margin-bottom: 8px;
+      text-align: left;
+      color: #999;
+    }
+
+    .rewards-section {
+      margin-top: 20px;
+      text-align: left;
+    }
+
+    .rewards-section h3 {
+      font-size: 16px;
+      margin-bottom: 10px;
+      color: #333;
+    }
+
+    /* CLAIM MODAL */
+    #claim-modal {
+      display: none;
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      background: rgba(0,0,0,0.5);
+      justify-content: center;
+      align-items: center;
+      z-index: 999;
+    }
+
+    #claim-modal.show { display: flex; }
+
+    #claim-box {
+      background: white;
+      border-radius: 16px;
+      padding: 30px;
+      max-width: 300px;
+      width: 90%;
+      text-align: center;
+    }
+
+    #claim-box h2 { margin-bottom: 10px; }
+    #claim-box p { color: #666; margin-bottom: 20px; }
+
+    #claim-btn { background: #4CAF50; }
+    #back-btn { background: #999; }
   </style>
 </head>
 <body>
@@ -65,6 +127,28 @@
     <input type="text" id="code-input" placeholder="Enter your code here..." style="text-transform:uppercase" />
     <button id="redeem-btn">Redeem Code</button>
     <button id="logout-btn" style="background:#e53935">Logout</button>
+
+    <!-- REWARDS -->
+    <div class="rewards-section">
+      <h3>🎁 Your Rewards</h3>
+      <div id="rewards-list">No rewards yet!</div>
+    </div>
+
+    <div class="rewards-section">
+      <h3>✅ Claimed Rewards</h3>
+      <div id="claimed-list">No claimed rewards yet!</div>
+    </div>
+  </div>
+
+  <!-- CLAIM MODAL -->
+  <div id="claim-modal">
+    <div id="claim-box">
+      <h2>☕ Free Coffee!</h2>
+      <p id="claim-earned-date"></p>
+      <p>Show this screen to claim your free coffee!</p>
+      <button id="claim-btn">Claim Coffee ☕</button>
+      <button id="back-btn">Go Back</button>
+    </div>
   </div>
 
   <script>
@@ -73,11 +157,15 @@
 
     const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
+    let selectedRewardId = null;
+
     document.addEventListener('DOMContentLoaded', function() {
       document.getElementById('login-btn').addEventListener('click', login);
       document.getElementById('signup-btn').addEventListener('click', signup);
       document.getElementById('redeem-btn').addEventListener('click', redeemCode);
       document.getElementById('logout-btn').addEventListener('click', logout);
+      document.getElementById('claim-btn').addEventListener('click', claimReward);
+      document.getElementById('back-btn').addEventListener('click', closeModal);
     });
 
     async function signup() {
@@ -110,13 +198,77 @@
       document.getElementById('visit-count').textContent = data ? data.visits : 0;
     }
 
+    async function loadRewards(email) {
+      const { data } = await client
+        .from('rewards')
+        .select('*')
+        .eq('email', email)
+        .order('earned_at', { ascending: true });
+
+      if (!data || data.length === 0) {
+        document.getElementById('rewards-list').innerHTML = 'No rewards yet!';
+        document.getElementById('claimed-list').innerHTML = 'No claimed rewards yet!';
+        return;
+      }
+
+      const unclaimed = data.filter(r => !r.claimed);
+      const claimed = data.filter(r => r.claimed);
+
+      document.getElementById('rewards-list').innerHTML = unclaimed.length === 0
+        ? 'No rewards yet!'
+        : unclaimed.map(r => `
+            <div class="reward-item" onclick="openModal('${r.id}', '${r.earned_at}')">
+              ☕ Free Coffee<br>
+              <small>Earned ${formatDate(r.earned_at)}</small>
+            </div>
+          `).join('');
+
+      document.getElementById('claimed-list').innerHTML = claimed.length === 0
+        ? 'No claimed rewards yet!'
+        : claimed.map(r => `
+            <div class="claimed-item">
+              ☕ Free Coffee<br>
+              <small>Earned ${formatDate(r.earned_at)} · Claimed ${formatDate(r.claimed_at)}</small>
+            </div>
+          `).join('');
+    }
+
+    function formatDate(dateStr) {
+      return new Date(dateStr).toLocaleDateString('en-GB', {
+        day: 'numeric', month: 'short', year: 'numeric'
+      });
+    }
+
+    function openModal(rewardId, earnedAt) {
+      selectedRewardId = rewardId;
+      document.getElementById('claim-earned-date').textContent = 'Earned ' + formatDate(earnedAt);
+      document.getElementById('claim-modal').classList.add('show');
+    }
+
+    function closeModal() {
+      selectedRewardId = null;
+      document.getElementById('claim-modal').classList.remove('show');
+    }
+
+    async function claimReward() {
+      if (!selectedRewardId) return;
+      await client.from('rewards').update({
+        claimed: true,
+        claimed_at: new Date().toISOString()
+      }).eq('id', selectedRewardId);
+
+      closeModal();
+      const { data: { user } } = await client.auth.getUser();
+      loadRewards(user.email);
+    }
+
     async function redeemCode() {
       const userCode = document.getElementById('code-input').value.toUpperCase().trim();
       const { data: { user } } = await client.auth.getUser();
 
       if (!userCode) { alert('Please enter a code!'); return; }
 
-      const { data: codeData, error } = await client
+      const { data: codeData } = await client
         .from('codes')
         .select('*')
         .eq('id', userCode)
@@ -124,6 +276,15 @@
 
       if (!codeData) { alert('❌ Invalid code!'); return; }
       if (codeData.used) { alert('❌ This code has already been used!'); return; }
+
+      // check if code is expired (5 minutes)
+      const createdAt = new Date(codeData.created_at);
+      const now = new Date();
+      const diffMinutes = (now - createdAt) / 1000 / 60;
+      if (diffMinutes > 5) {
+        alert('❌ This code has expired! Please get a new one.');
+        return;
+      }
 
       await client.from('codes').update({
         used: true,
@@ -137,13 +298,27 @@
         .eq('email', user.email)
         .single();
 
+      let newVisits = 1;
       if (customer) {
+        newVisits = customer.visits + 1;
         await client.from('customers')
-          .update({ visits: customer.visits + 1 })
+          .update({ visits: newVisits })
           .eq('email', user.email);
       } else {
         await client.from('customers')
           .insert({ email: user.email, visits: 1 });
+      }
+
+      // check if they earned a reward (every 5 visits)
+      if (newVisits % 5 === 0) {
+        await client.from('rewards').insert({
+          email: user.email,
+          earned_at: new Date().toISOString(),
+          claimed: false
+        });
+        alert('✅ Visit logged! AND you earned a free coffee! ☕');
+      } else {
+        alert('✅ Visit logged! Thanks for coming in!');
       }
 
       await client.from('archive').insert({
@@ -152,9 +327,9 @@
         visited_at: new Date().toISOString()
       });
 
-      alert('✅ Visit logged! Thanks for coming in!');
       document.getElementById('code-input').value = '';
       loadVisits(user.email);
+      loadRewards(user.email);
     }
 
     client.auth.onAuthStateChange(async (event, session) => {
@@ -175,6 +350,7 @@
         }
 
         loadVisits(user.email);
+        loadRewards(user.email);
       } else {
         document.getElementById('login-section').style.display = 'block';
         document.getElementById('dashboard').style.display = 'none';
