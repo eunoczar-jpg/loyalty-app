@@ -7,15 +7,21 @@
 
   <style>
     body { font-family: sans-serif; padding: 20px; max-width: 800px; margin: auto; }
-    input { padding: 8px; width: 300px; margin-right: 8px; }
-    button { padding: 8px 16px; cursor: pointer; }
+    input { padding: 8px; width: 100%; margin-bottom: 8px; box-sizing: border-box; }
+    button { padding: 8px 16px; cursor: pointer; margin-bottom: 8px; }
     table { width: 100%; border-collapse: collapse; margin-top: 20px; }
     th, td { border: 1px solid #ddd; padding: 10px; text-align: left; }
     th { background: #f4f4f4; }
     tr:hover { background: #f9f9f9; }
-    #login-section input { display: block; margin-bottom: 10px; width: 300px; }
     .visits { font-weight: bold; }
-    #loading { color: #999; margin-top: 20px; }
+    #loading { color: #999; }
+    .section { margin-top: 40px; }
+    .tier-row { display: flex; gap: 8px; margin-bottom: 8px; align-items: center; }
+    .tier-row input { margin-bottom: 0; }
+    .delete-btn { background: #e53935; color: white; border: none; border-radius: 4px; padding: 6px 12px; cursor: pointer; }
+    .add-btn { background: #4CAF50; color: white; border: none; border-radius: 4px; padding: 8px 16px; cursor: pointer; }
+    .save-btn { background: #2196F3; color: white; border: none; border-radius: 4px; padding: 6px 12px; cursor: pointer; }
+    #login-section input { display: block; margin-bottom: 10px; }
   </style>
 </head>
 <body>
@@ -24,27 +30,44 @@
 
   <div id="login-section" style="display:none">
     <h2>Admin Login</h2>
-    <input type="email" id="email" placeholder="Email" />
-    <input type="password" id="password" placeholder="Password" />
+    <input type="email" id="email" placeholder="Email" style="width:300px" />
+    <input type="password" id="password" placeholder="Password" style="width:300px" />
     <button id="login-btn">Login</button>
   </div>
 
   <div id="admin-panel" style="display:none">
-    <h2>Admin Panel</h2>
-    <button id="logout-btn" style="float:right">Logout</button>
-    <input type="text" id="search" placeholder="Search by email..." />
-    <table>
-      <thead>
-        <tr>
-          <th>Email</th>
-          <th>Visits</th>
-          <th>Action</th>
-        </tr>
-      </thead>
-      <tbody id="customer-list">
-        <tr><td colspan="3">Loading customers...</td></tr>
-      </tbody>
-    </table>
+    <h2>Admin Panel <button id="logout-btn" style="float:right">Logout</button></h2>
+
+    <!-- CUSTOMERS -->
+    <div class="section">
+      <h3>Customers</h3>
+      <input type="text" id="search" placeholder="Search by email..." style="width:300px" />
+      <table>
+        <thead>
+          <tr>
+            <th>Email</th>
+            <th>Cycle Visits</th>
+            <th>Total Visits</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody id="customer-list">
+          <tr><td colspan="4">Loading customers...</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- REWARD TIERS -->
+    <div class="section">
+      <h3>🏆 Reward Tiers</h3>
+      <div id="tiers-editor">Loading...</div>
+      <br>
+      <h4>Add new reward:</h4>
+      <input type="text" id="new-emoji" placeholder="Emoji e.g. ☕" style="width:80px" />
+      <input type="text" id="new-description" placeholder="Description e.g. Free Coffee" style="width:200px" />
+      <input type="number" id="new-visits" placeholder="Every X visits" style="width:120px" />
+      <button class="add-btn" id="add-tier-btn">Add Reward</button>
+    </div>
   </div>
 
   <script>
@@ -53,16 +76,14 @@
     const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImduaG5ha2ZwcGZqaGNjb3VzZ2RzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE0MjQwMDgsImV4cCI6MjA5NzAwMDAwOH0.-tkClG-l39YX7ATxdpfPHo5VF9aZAXQPU37FA_q7S0Y';
 
     const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-
     let allCustomers = [];
 
     async function init() {
       const { data: { session } } = await client.auth.getSession();
       document.getElementById('loading').style.display = 'none';
-
       if (session && session.user.email === ADMIN_EMAIL) {
         showPanel();
-      } else if (session && session.user.email !== ADMIN_EMAIL) {
+      } else if (session) {
         alert('You are not authorised!');
         await client.auth.signOut();
         showLogin();
@@ -80,12 +101,14 @@
       document.getElementById('login-section').style.display = 'none';
       document.getElementById('admin-panel').style.display = 'block';
       loadCustomers();
+      loadTiers();
     }
 
     document.addEventListener('DOMContentLoaded', function() {
       document.getElementById('login-btn').addEventListener('click', login);
       document.getElementById('logout-btn').addEventListener('click', logout);
       document.getElementById('search').addEventListener('input', filterCustomers);
+      document.getElementById('add-tier-btn').addEventListener('click', addTier);
       init();
     });
 
@@ -116,13 +139,14 @@
     function renderCustomers(customers) {
       const list = document.getElementById('customer-list');
       if (customers.length === 0) {
-        list.innerHTML = '<tr><td colspan="3">No customers found</td></tr>';
+        list.innerHTML = '<tr><td colspan="4">No customers found</td></tr>';
         return;
       }
       list.innerHTML = customers.map(c => `
         <tr>
           <td>${c.email}</td>
           <td class="visits">${c.visits}</td>
+          <td>${c.total_visits || 0}</td>
           <td><button onclick="logVisit('${c.email}')">Log a Visit</button></td>
         </tr>
       `).join('');
@@ -137,16 +161,78 @@
     async function logVisit(email) {
       const { data: customer } = await client
         .from('customers')
-        .select('visits')
+        .select('*')
         .eq('email', email)
         .single();
 
+      const newTotalVisits = (customer.total_visits || 0) + 1;
+      const newVisits = customer.visits >= 26 ? 1 : customer.visits + 1;
+
       await client.from('customers')
-        .update({ visits: customer.visits + 1 })
+        .update({ visits: newVisits, total_visits: newTotalVisits })
         .eq('email', email);
 
       alert('Visit logged! ✅');
       loadCustomers();
+    }
+
+    async function loadTiers() {
+      const { data } = await client
+        .from('reward_tiers')
+        .select('*')
+        .order('visits_required', { ascending: true });
+
+      if (!data || data.length === 0) {
+        document.getElementById('tiers-editor').innerHTML = 'No reward tiers yet — add one below!';
+        return;
+      }
+
+      document.getElementById('tiers-editor').innerHTML = data.map(t => `
+        <div class="tier-row">
+          <input type="text" value="${t.emoji}" id="emoji-${t.id}" style="width:60px" />
+          <input type="text" value="${t.description}" id="desc-${t.id}" style="width:200px" />
+          <input type="number" value="${t.visits_required}" id="visits-${t.id}" style="width:80px" />
+          <button class="save-btn" onclick="saveTier('${t.id}')">Save</button>
+          <button class="delete-btn" onclick="deleteTier('${t.id}')">Delete</button>
+        </div>
+      `).join('');
+    }
+
+    async function saveTier(id) {
+      const emoji = document.getElementById('emoji-' + id).value;
+      const description = document.getElementById('desc-' + id).value;
+      const visits_required = parseInt(document.getElementById('visits-' + id).value);
+
+      await client.from('reward_tiers')
+        .update({ emoji, description, visits_required })
+        .eq('id', id);
+
+      alert('Reward updated! ✅');
+      loadTiers();
+    }
+
+    async function deleteTier(id) {
+      if (!confirm('Delete this reward?')) return;
+      await client.from('reward_tiers').delete().eq('id', id);
+      loadTiers();
+    }
+
+    async function addTier() {
+      const emoji = document.getElementById('new-emoji').value.trim();
+      const description = document.getElementById('new-description').value.trim();
+      const visits_required = parseInt(document.getElementById('new-visits').value);
+
+      if (!emoji || !description || !visits_required) {
+        alert('Please fill in all fields!');
+        return;
+      }
+
+      await client.from('reward_tiers').insert({ emoji, description, visits_required });
+      document.getElementById('new-emoji').value = '';
+      document.getElementById('new-description').value = '';
+      document.getElementById('new-visits').value = '';
+      alert('Reward added! ✅');
+      loadTiers();
     }
   </script>
 
