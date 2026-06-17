@@ -15,21 +15,24 @@
     tr:hover { background: #f9f9f9; }
     #login-section input { display: block; margin-bottom: 10px; width: 300px; }
     .visits { font-weight: bold; }
+    #loading { color: #999; margin-top: 20px; }
   </style>
 </head>
 <body>
 
-  <div id="login-section">
+  <p id="loading">Loading...</p>
+
+  <div id="login-section" style="display:none">
     <h2>Admin Login</h2>
     <input type="email" id="email" placeholder="Email" />
     <input type="password" id="password" placeholder="Password" />
-    <button onclick="login()">Login</button>
+    <button id="login-btn">Login</button>
   </div>
 
   <div id="admin-panel" style="display:none">
     <h2>Admin Panel</h2>
-    <button onclick="logout()" style="float:right">Logout</button>
-    <input type="text" id="search" placeholder="Search by email..." oninput="filterCustomers()" />
+    <button id="logout-btn" style="float:right">Logout</button>
+    <input type="text" id="search" placeholder="Search by email..." />
     <table>
       <thead>
         <tr>
@@ -45,30 +48,67 @@
   </div>
 
   <script>
-    const ADMIN_EMAIL = bigbraincafe22@gmail.com;
+    const ADMIN_EMAIL = 'bigbraincafe22@gmail.com';
+    const SUPABASE_URL = 'https://gnhnakfppfjhccousgds.supabase.co';
+    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImduaG5ha2ZwcGZqaGNjb3VzZ2RzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE0MjQwMDgsImV4cCI6MjA5NzAwMDAwOH0.-tkClG-l39YX7ATxdpfPHo5VF9aZAXQPU37FA_q7S0Y';
 
-    const supabase = window.supabase.createClient(
-      'https://gnhnakfppfjhccousgds.supabase.co',
-      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImduaG5ha2ZwcGZqaGNjb3VzZ2RzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE0MjQwMDgsImV4cCI6MjA5NzAwMDAwOH0.-tkClG-l39YX7ATxdpfPHo5VF9aZAXQPU37FA_q7S0Y'
-    );
+    const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
     let allCustomers = [];
 
-    async function login() {
-      const email = document.getElementById('email').value;
-      const password = document.getElementById('password').value;
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
-      if (error) alert('Error: ' + error.message);
+    async function init() {
+      const { data: { session } } = await client.auth.getSession();
+      document.getElementById('loading').style.display = 'none';
+
+      if (session && session.user.email === ADMIN_EMAIL) {
+        showPanel();
+      } else if (session && session.user.email !== ADMIN_EMAIL) {
+        alert('You are not authorised!');
+        await client.auth.signOut();
+        showLogin();
+      } else {
+        showLogin();
+      }
     }
 
-    async function logout() {
-      await supabase.auth.signOut();
+    function showLogin() {
       document.getElementById('login-section').style.display = 'block';
       document.getElementById('admin-panel').style.display = 'none';
     }
 
+    function showPanel() {
+      document.getElementById('login-section').style.display = 'none';
+      document.getElementById('admin-panel').style.display = 'block';
+      loadCustomers();
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+      document.getElementById('login-btn').addEventListener('click', login);
+      document.getElementById('logout-btn').addEventListener('click', logout);
+      document.getElementById('search').addEventListener('input', filterCustomers);
+      init();
+    });
+
+    async function login() {
+      const email = document.getElementById('email').value;
+      const password = document.getElementById('password').value;
+      const { data, error } = await client.auth.signInWithPassword({ email, password });
+      if (error) { alert('Error: ' + error.message); return; }
+      if (data.user.email !== ADMIN_EMAIL) {
+        alert('You are not authorised!');
+        await client.auth.signOut();
+        return;
+      }
+      showPanel();
+    }
+
+    async function logout() {
+      await client.auth.signOut();
+      showLogin();
+    }
+
     async function loadCustomers() {
-      const { data } = await supabase.from('customers').select('*');
+      const { data } = await client.from('customers').select('*');
       allCustomers = data || [];
       renderCustomers(allCustomers);
     }
@@ -95,33 +135,19 @@
     }
 
     async function logVisit(email) {
-      const { data: customer } = await supabase
+      const { data: customer } = await client
         .from('customers')
         .select('visits')
         .eq('email', email)
         .single();
 
-      await supabase.from('customers')
+      await client.from('customers')
         .update({ visits: customer.visits + 1 })
         .eq('email', email);
 
       alert('Visit logged! ✅');
       loadCustomers();
     }
-
-    supabase.auth.onAuthStateChange(async (event, session) => {
-      if (session && session.user.email === ADMIN_EMAIL) {
-        document.getElementById('login-section').style.display = 'none';
-        document.getElementById('admin-panel').style.display = 'block';
-        loadCustomers();
-      } else if (session && session.user.email !== ADMIN_EMAIL) {
-        alert('You are not authorised to view this page!');
-        await supabase.auth.signOut();
-      } else {
-        document.getElementById('login-section').style.display = 'block';
-        document.getElementById('admin-panel').style.display = 'none';
-      }
-    });
   </script>
 
 </body>
