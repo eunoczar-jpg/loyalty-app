@@ -10,7 +10,7 @@
     input { padding: 8px; width: 100%; margin-bottom: 8px; box-sizing: border-box; }
     button { padding: 8px 16px; cursor: pointer; margin-bottom: 8px; }
     table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-    th, td { border: 1px solid #ddd; padding: 10px; text-align: left; }
+    th, td { border: 1px solid #ddd; padding: 10px; text-align: left; font-size: 14px; }
     th { background: #f4f4f4; }
     tr:hover { background: #f9f9f9; }
     .visits { font-weight: bold; }
@@ -23,6 +23,9 @@
     .save-btn { background: #2196F3; color: white; border: none; border-radius: 4px; padding: 6px 12px; cursor: pointer; white-space: nowrap; }
     .change-btn { background: #FF9800; color: white; border: none; border-radius: 4px; padding: 8px 16px; cursor: pointer; }
     #login-section input { display: block; margin-bottom: 10px; }
+    .suspicious { background: #fff3f3 !important; }
+    .archive-filters { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+    .archive-filters input { width: auto; flex: 1; margin-bottom: 0; }
   </style>
 </head>
 <body>
@@ -79,6 +82,29 @@
       <input type="text" id="claim-password-field" placeholder="Loading..." style="width:300px" />
       <button class="change-btn" id="save-password-btn">Save Password</button>
     </div>
+
+    <!-- ARCHIVE -->
+    <div class="section">
+      <h3>📋 Visit Archive</h3>
+      <p style="color:#666; font-size:14px">Full log of every visit. Rows highlighted in red visited more than once in a day.</p>
+      <div class="archive-filters">
+        <input type="text" id="archive-search" placeholder="Search by email..." />
+        <button onclick="loadArchive()" style="background:#4a7c59; color:white; border:none; border-radius:4px; padding:8px 16px;">Refresh</button>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>Email</th>
+            <th>Code</th>
+            <th>Date & Time</th>
+          </tr>
+        </thead>
+        <tbody id="archive-list">
+          <tr><td colspan="3">Loading...</td></tr>
+        </tbody>
+      </table>
+    </div>
+
   </div>
 
   <script>
@@ -88,6 +114,7 @@
 
     const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
     let allCustomers = [];
+    let allArchive = [];
 
     async function init() {
       const { data: { session } } = await client.auth.getSession();
@@ -114,12 +141,14 @@
       loadCustomers();
       loadTiers();
       loadClaimPassword();
+      loadArchive();
     }
 
     document.addEventListener('DOMContentLoaded', function() {
       document.getElementById('login-btn').addEventListener('click', login);
       document.getElementById('logout-btn').addEventListener('click', logout);
       document.getElementById('search').addEventListener('input', filterCustomers);
+      document.getElementById('archive-search').addEventListener('input', filterArchive);
       document.getElementById('add-tier-btn').addEventListener('click', addTier);
       document.getElementById('save-password-btn').addEventListener('click', saveClaimPassword);
       init();
@@ -262,6 +291,51 @@
         .update({ value: newPassword })
         .eq('key', 'claim_password');
       alert('Password updated! ✅');
+    }
+
+    async function loadArchive() {
+      const { data } = await client
+        .from('archive')
+        .select('*')
+        .order('visited_at', { ascending: false });
+
+      allArchive = data || [];
+      renderArchive(allArchive);
+    }
+
+    function renderArchive(entries) {
+      const list = document.getElementById('archive-list');
+      if (entries.length === 0) {
+        list.innerHTML = '<tr><td colspan="3">No visits yet!</td></tr>';
+        return;
+      }
+
+      // find suspicious entries (same email more than once per day)
+      const visitsByDay = {};
+      entries.forEach(e => {
+        const day = new Date(e.visited_at).toDateString();
+        const key = e.email + '|' + day;
+        visitsByDay[key] = (visitsByDay[key] || 0) + 1;
+      });
+
+      list.innerHTML = entries.map(e => {
+        const day = new Date(e.visited_at).toDateString();
+        const key = e.email + '|' + day;
+        const suspicious = visitsByDay[key] > 1;
+        return `
+          <tr class="${suspicious ? 'suspicious' : ''}">
+            <td>${e.email} ${suspicious ? '⚠️' : ''}</td>
+            <td>${e.code}</td>
+            <td>${new Date(e.visited_at).toLocaleString('en-GB')}</td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    function filterArchive() {
+      const search = document.getElementById('archive-search').value.toLowerCase();
+      const filtered = allArchive.filter(e => e.email.toLowerCase().includes(search));
+      renderArchive(filtered);
     }
   </script>
 
