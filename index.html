@@ -46,6 +46,12 @@
       margin: 20px 0;
     }
 
+    #total-visits {
+      font-size: 14px;
+      color: #999;
+      margin-bottom: 20px;
+    }
+
     .reward-item {
       background: #fff8e1;
       border: 1px solid #ffe082;
@@ -66,6 +72,15 @@
       margin-bottom: 8px;
       text-align: left;
       color: #999;
+    }
+
+    .tier-item {
+      background: #e8f5e9;
+      border: 1px solid #a5d6a7;
+      border-radius: 8px;
+      padding: 12px;
+      margin-bottom: 8px;
+      text-align: left;
     }
 
     .rewards-section {
@@ -111,6 +126,18 @@
       margin-top: 40px;
       color: #999;
     }
+
+    .forgot-password {
+      background: none;
+      color: #4CAF50;
+      border: none;
+      padding: 0;
+      font-size: 14px;
+      cursor: pointer;
+      text-decoration: underline;
+      width: auto;
+      margin-bottom: 10px;
+    }
   </style>
 </head>
 <body>
@@ -124,14 +151,21 @@
     <input type="password" id="password" placeholder="Password" />
     <button id="login-btn">Login</button>
     <button id="signup-btn">Sign Up</button>
+    <button class="forgot-password" id="forgot-btn">Forgot password?</button>
   </div>
 
   <div id="dashboard" style="display:none">
     <p>Welcome! 👋</p>
-    <p>Visits: <span id="visit-count">0</span></p>
+    <p>Visits this cycle: <span id="visit-count">0</span></p>
+    <p id="total-visits">Total visits: 0</p>
     <input type="text" id="code-input" placeholder="Enter your code here..." style="text-transform:uppercase" />
     <button id="redeem-btn">Redeem Code</button>
     <button id="logout-btn" style="background:#e53935">Logout</button>
+
+    <div class="rewards-section">
+      <h3>🏆 What you can earn</h3>
+      <div id="tiers-list">Loading...</div>
+    </div>
 
     <div class="rewards-section">
       <h3>🎁 Your Rewards</h3>
@@ -146,10 +180,10 @@
 
   <div id="claim-modal">
     <div id="claim-box">
-      <h2>☕ Free Coffee!</h2>
+      <h2 id="claim-title">🎁 Reward!</h2>
       <p id="claim-earned-date"></p>
-      <p>Show this screen to claim your free coffee!</p>
-      <button id="claim-btn">Claim Coffee ☕</button>
+      <p>Show this screen to claim your reward!</p>
+      <button id="claim-btn">Claim Reward</button>
       <button id="back-btn">Go Back</button>
     </div>
   </div>
@@ -161,13 +195,12 @@
     const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
     let selectedRewardId = null;
+    let selectedRewardName = null;
     let currentUser = null;
 
     async function init() {
       const { data: { session } } = await client.auth.getSession();
-
       document.getElementById('loading').style.display = 'none';
-
       if (session) {
         currentUser = session.user;
         showDashboard();
@@ -179,8 +212,9 @@
     function showDashboard() {
       document.getElementById('login-section').style.display = 'none';
       document.getElementById('dashboard').style.display = 'block';
-      loadVisits(currentUser.email);
+      loadCustomer(currentUser.email);
       loadRewards(currentUser.email);
+      loadTiers();
     }
 
     function showLogin() {
@@ -195,6 +229,7 @@
       document.getElementById('logout-btn').addEventListener('click', logout);
       document.getElementById('claim-btn').addEventListener('click', claimReward);
       document.getElementById('back-btn').addEventListener('click', closeModal);
+      document.getElementById('forgot-btn').addEventListener('click', forgotPassword);
       init();
     });
 
@@ -221,19 +256,50 @@
       showLogin();
     }
 
-    async function loadVisits(email) {
+    async function forgotPassword() {
+      const email = document.getElementById('email').value;
+      if (!email) { alert('Please enter your email first!'); return; }
+      const { error } = await client.auth.resetPasswordForEmail(email, {
+        redirectTo: 'https://eunoczar-jpg.github.io/loyalty-app/'
+      });
+      if (error) alert('Error: ' + error.message);
+      else alert('Password reset email sent! Check your inbox 📧');
+    }
+
+    async function loadCustomer(email) {
       const { data, error } = await client
         .from('customers')
-        .select('visits')
+        .select('visits, total_visits')
         .eq('email', email)
         .single();
-      if (error) {
-        // customer doesn't exist yet, create them
-        await client.from('customers').insert({ email: email, visits: 0 });
+
+      if (error || !data) {
+        await client.from('customers').insert({ email, visits: 0, total_visits: 0 });
         document.getElementById('visit-count').textContent = 0;
+        document.getElementById('total-visits').textContent = 'Total visits: 0';
       } else {
         document.getElementById('visit-count').textContent = data.visits;
+        document.getElementById('total-visits').textContent = 'Total visits: ' + (data.total_visits || 0);
       }
+    }
+
+    async function loadTiers() {
+      const { data } = await client
+        .from('reward_tiers')
+        .select('*')
+        .order('visits_required', { ascending: true });
+
+      if (!data || data.length === 0) {
+        document.getElementById('tiers-list').innerHTML = 'No rewards set up yet!';
+        return;
+      }
+
+      document.getElementById('tiers-list').innerHTML = data.map(t => `
+        <div class="tier-item">
+          ${t.emoji} ${t.description}<br>
+          <small>Every ${t.visits_required} visits</small>
+        </div>
+      `).join('');
     }
 
     async function loadRewards(email) {
@@ -255,8 +321,8 @@
       document.getElementById('rewards-list').innerHTML = unclaimed.length === 0
         ? 'No rewards yet!'
         : unclaimed.map(r => `
-            <div class="reward-item" onclick="openModal('${r.id}', '${r.earned_at}')">
-              ☕ Free Coffee<br>
+            <div class="reward-item" onclick="openModal('${r.id}', '${r.earned_at}', '${r.description}')">
+              ${r.emoji || '🎁'} ${r.description || 'Reward'}<br>
               <small>Earned ${formatDate(r.earned_at)}</small>
             </div>
           `).join('');
@@ -265,7 +331,7 @@
         ? 'No claimed rewards yet!'
         : claimed.map(r => `
             <div class="claimed-item">
-              ☕ Free Coffee<br>
+              ${r.emoji || '🎁'} ${r.description || 'Reward'}<br>
               <small>Earned ${formatDate(r.earned_at)} · Claimed ${formatDate(r.claimed_at)}</small>
             </div>
           `).join('');
@@ -277,8 +343,10 @@
       });
     }
 
-    function openModal(rewardId, earnedAt) {
+    function openModal(rewardId, earnedAt, description) {
       selectedRewardId = rewardId;
+      selectedRewardName = description;
+      document.getElementById('claim-title').textContent = '🎁 ' + description;
       document.getElementById('claim-earned-date').textContent = 'Earned ' + formatDate(earnedAt);
       document.getElementById('claim-modal').classList.add('show');
     }
@@ -300,7 +368,6 @@
 
     async function redeemCode() {
       const userCode = document.getElementById('code-input').value.toUpperCase().trim();
-
       if (!userCode) { alert('Please enter a code!'); return; }
 
       const { data: codeData } = await client
@@ -333,24 +400,41 @@
         .single();
 
       let newVisits = 1;
+      let newTotalVisits = 1;
+
       if (customer) {
-        newVisits = customer.visits + 1;
+        newTotalVisits = (customer.total_visits || 0) + 1;
+        // reset main counter at 26
+        newVisits = customer.visits >= 26 ? 1 : customer.visits + 1;
         await client.from('customers')
-          .update({ visits: newVisits })
+          .update({ visits: newVisits, total_visits: newTotalVisits })
           .eq('email', currentUser.email);
       } else {
         await client.from('customers')
-          .insert({ email: currentUser.email, visits: 1 });
+          .insert({ email: currentUser.email, visits: 1, total_visits: 1 });
       }
 
-      if (newVisits % 5 === 0) {
-        await client.from('rewards').insert({
-          email: currentUser.email,
-          earned_at: new Date().toISOString(),
-          claimed: false
-        });
-        alert('✅ Visit logged! AND you earned a free coffee! ☕');
-      } else {
+      // check reward tiers
+      const { data: tiers } = await client
+        .from('reward_tiers')
+        .select('*');
+
+      if (tiers) {
+        for (const tier of tiers) {
+          if (newVisits % tier.visits_required === 0) {
+            await client.from('rewards').insert({
+              email: currentUser.email,
+              earned_at: new Date().toISOString(),
+              claimed: false,
+              description: tier.description,
+              emoji: tier.emoji
+            });
+            alert(`✅ Visit logged! AND you earned: ${tier.emoji} ${tier.description}!`);
+          }
+        }
+      }
+
+      if (!tiers || !tiers.some(t => newVisits % t.visits_required === 0)) {
         alert('✅ Visit logged! Thanks for coming in!');
       }
 
@@ -361,7 +445,7 @@
       });
 
       document.getElementById('code-input').value = '';
-      loadVisits(currentUser.email);
+      loadCustomer(currentUser.email);
       loadRewards(currentUser.email);
     }
   </script>
