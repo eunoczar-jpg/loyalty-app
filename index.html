@@ -1,0 +1,1085 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>BIGBRAIN Loyalty</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: #F5F0E8;
+      color: #1a1a1a;
+      min-height: 100vh;
+      padding: 24px 20px 100px 20px;
+      max-width: 480px;
+      margin: auto;
+    }
+
+    .header {
+      text-align: center;
+      margin-bottom: 32px;
+    }
+
+    .header h1 {
+      font-size: 36px;
+      font-weight: 800;
+      letter-spacing: -1px;
+      color: #4a7c59;
+    }
+
+    .header p {
+      font-size: 13px;
+      color: #888;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      margin-top: 4px;
+    }
+
+    .card {
+      background: white;
+      border-radius: 20px;
+      padding: 24px;
+      margin-bottom: 16px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+    }
+
+    /* AUTH TABS */
+    .tabs {
+      display: flex;
+      background: #f0ebe3;
+      border-radius: 12px;
+      padding: 4px;
+      margin-bottom: 20px;
+    }
+
+    .tab {
+      flex: 1;
+      padding: 10px;
+      text-align: center;
+      font-size: 14px;
+      font-weight: 600;
+      font-family: 'Inter', sans-serif;
+      border: none;
+      border-radius: 10px;
+      background: none;
+      color: #888;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .tab.active {
+      background: white;
+      color: #1a1a1a;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+    }
+
+    input[type="email"],
+    input[type="password"],
+    input[type="text"],
+    textarea {
+      display: block;
+      width: 100%;
+      padding: 14px 16px;
+      margin-bottom: 12px;
+      font-size: 15px;
+      font-family: 'Inter', sans-serif;
+      border: 1.5px solid #e8e0d4;
+      border-radius: 12px;
+      background: #faf8f5;
+      color: #1a1a1a;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    textarea {
+      resize: vertical;
+      min-height: 80px;
+    }
+
+    input:focus, textarea:focus { border-color: #4a7c59; }
+
+    .btn-primary {
+      width: 100%;
+      padding: 14px;
+      margin-bottom: 10px;
+      font-size: 15px;
+      font-weight: 600;
+      font-family: 'Inter', sans-serif;
+      border: none;
+      border-radius: 12px;
+      background: #4a7c59;
+      color: white;
+      cursor: pointer;
+      transition: background 0.2s, transform 0.1s;
+    }
+
+    .btn-primary:hover {
+      background: #3d6b4a;
+      transform: translateY(-1px);
+    }
+
+    .btn-secondary {
+      width: 100%;
+      padding: 14px;
+      margin-bottom: 10px;
+      font-size: 15px;
+      font-weight: 600;
+      font-family: 'Inter', sans-serif;
+      border: 1.5px solid #e8e0d4;
+      border-radius: 12px;
+      background: white;
+      color: #1a1a1a;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .btn-secondary:hover { background: #faf8f5; }
+
+    .btn-danger {
+      width: 100%;
+      padding: 14px;
+      margin-bottom: 10px;
+      font-size: 15px;
+      font-weight: 600;
+      font-family: 'Inter', sans-serif;
+      border: none;
+      border-radius: 12px;
+      background: #e8f0eb;
+      color: #4a7c59;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .btn-danger:hover { background: #d9e8dc; }
+
+    .forgot-password {
+      background: none;
+      border: none;
+      color: #E87722;
+      font-size: 13px;
+      font-family: 'Inter', sans-serif;
+      cursor: pointer;
+      text-decoration: underline;
+      width: auto;
+      padding: 0;
+    }
+
+    .see-reviews-link {
+      display: block;
+      text-align: center;
+      margin-top: 16px;
+      background: none;
+      border: none;
+      color: #4a7c59;
+      font-size: 14px;
+      font-weight: 600;
+      font-family: 'Inter', sans-serif;
+      cursor: pointer;
+      width: 100%;
+    }
+
+    .back-to-login-link {
+      display: block;
+      text-align: center;
+      margin-bottom: 16px;
+      background: none;
+      border: none;
+      color: #4a7c59;
+      font-size: 14px;
+      font-weight: 600;
+      font-family: 'Inter', sans-serif;
+      cursor: pointer;
+      width: 100%;
+    }
+
+    .visit-card {
+      background: #1a1a1a;
+      border-radius: 20px;
+      padding: 32px 24px;
+      text-align: center;
+      margin-bottom: 16px;
+    }
+
+    .visit-card .label {
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: #888;
+      margin-bottom: 8px;
+    }
+
+    .visit-card .count {
+      font-size: 80px;
+      font-weight: 800;
+      color: white;
+      line-height: 1;
+      margin-bottom: 8px;
+    }
+
+    .visit-card .orange-dot {
+      width: 8px;
+      height: 8px;
+      background: #E87722;
+      border-radius: 50%;
+      display: inline-block;
+      margin: 0 3px;
+    }
+
+    .visit-card .total {
+      font-size: 12px;
+      color: #666;
+      margin-top: 12px;
+    }
+
+    .section-header {
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      color: #888;
+      margin-bottom: 12px;
+    }
+
+    .tier-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 0;
+      border-bottom: 1px solid #f0ebe3;
+    }
+
+    .tier-item:last-child { border-bottom: none; }
+    .tier-emoji { font-size: 24px; width: 40px; text-align: center; }
+    .tier-info { flex: 1; }
+    .tier-info strong { font-size: 14px; font-weight: 600; display: block; }
+    .tier-info small { font-size: 12px; color: #888; }
+
+    .tier-badge {
+      background: #E87722;
+      color: white;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 4px 10px;
+      border-radius: 20px;
+    }
+
+    .reward-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 14px;
+      background: #fff8f0;
+      border: 1.5px solid #ffd9b3;
+      border-radius: 14px;
+      margin-bottom: 10px;
+      cursor: pointer;
+      transition: transform 0.1s, background 0.2s;
+    }
+
+    .reward-item:hover {
+      transform: translateY(-1px);
+      background: #fff2e6;
+    }
+
+    .reward-emoji { font-size: 28px; }
+    .reward-info { flex: 1; }
+    .reward-info strong { font-size: 14px; font-weight: 600; display: block; }
+    .reward-info small { font-size: 12px; color: #888; }
+    .reward-arrow { color: #E87722; font-size: 18px; }
+
+    .claimed-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 14px;
+      background: #faf8f5;
+      border: 1.5px solid #e8e0d4;
+      border-radius: 14px;
+      margin-bottom: 10px;
+      opacity: 0.6;
+    }
+
+    #claim-modal {
+      display: none;
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      background: rgba(0,0,0,0.6);
+      justify-content: center;
+      align-items: center;
+      z-index: 999;
+      padding: 20px;
+    }
+
+    #claim-modal.show { display: flex; }
+
+    #claim-box {
+      background: white;
+      border-radius: 24px;
+      padding: 32px 24px;
+      width: 100%;
+      max-width: 340px;
+      text-align: center;
+    }
+
+    #claim-box h2 { font-size: 22px; font-weight: 800; margin-bottom: 6px; }
+    #claim-box .claim-date { font-size: 13px; color: #888; margin-bottom: 20px; }
+    #claim-box .claim-instruction { font-size: 13px; color: #666; margin-bottom: 16px; }
+
+    #loading { text-align: center; margin-top: 40px; color: #888; font-size: 14px; }
+
+    .empty-state { text-align: center; padding: 20px; color: #aaa; font-size: 14px; }
+
+    /* MENU TAB */
+    .menu-category {
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      color: #4a7c59;
+      margin: 20px 0 10px 0;
+    }
+
+    .menu-category:first-child { margin-top: 0; }
+
+    .menu-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 0;
+      border-bottom: 1px solid #f0ebe3;
+    }
+
+    .menu-item:last-child { border-bottom: none; }
+
+    .menu-item-img {
+      width: 56px;
+      height: 56px;
+      border-radius: 12px;
+      object-fit: cover;
+      flex-shrink: 0;
+      background: #f0ebe3;
+    }
+
+    .menu-item-info { flex: 1; min-width: 0; }
+
+    .menu-item-info strong {
+      font-size: 15px;
+      font-weight: 600;
+      display: block;
+    }
+
+    .menu-item-info small {
+      font-size: 12px;
+      color: #888;
+      display: block;
+      margin-top: 2px;
+    }
+
+    .menu-item-price {
+      font-size: 15px;
+      font-weight: 700;
+      color: #E87722;
+      white-space: nowrap;
+      margin-left: 12px;
+    }
+
+    /* REVIEWS TAB */
+    .star-input {
+      display: flex;
+      gap: 6px;
+      margin-bottom: 14px;
+      justify-content: center;
+    }
+
+    .star-input span {
+      font-size: 32px;
+      cursor: pointer;
+      color: #e0d8c8;
+      transition: color 0.15s;
+    }
+
+    .star-input span.selected { color: #E87722; }
+
+    .review-item {
+      padding: 14px 0;
+      border-bottom: 1px solid #f0ebe3;
+    }
+
+    .review-item:last-child { border-bottom: none; }
+
+    .review-stars {
+      color: #E87722;
+      font-size: 14px;
+      margin-bottom: 4px;
+    }
+
+    .review-email {
+      font-size: 12px;
+      color: #888;
+      font-weight: 600;
+    }
+
+    .review-comment {
+      font-size: 14px;
+      color: #333;
+      margin-top: 6px;
+      line-height: 1.4;
+    }
+
+    .review-date {
+      font-size: 11px;
+      color: #aaa;
+      margin-top: 4px;
+    }
+
+    /* BOTTOM TAB BAR */
+    .bottom-nav {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: white;
+      border-top: 1px solid #e8e0d4;
+      display: flex;
+      max-width: 480px;
+      margin: auto;
+      box-shadow: 0 -2px 12px rgba(0,0,0,0.06);
+      z-index: 500;
+    }
+
+    .nav-btn {
+      flex: 1;
+      background: none;
+      border: none;
+      padding: 12px 0 10px 0;
+      cursor: pointer;
+      font-family: 'Inter', sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      color: #aaa;
+      transition: color 0.2s;
+    }
+
+    .nav-btn .nav-icon { font-size: 22px; }
+    .nav-btn .nav-label { font-size: 11px; font-weight: 600; }
+
+    .nav-btn.active { color: #4a7c59; }
+
+    .page-section { display: none; }
+    .page-section.active { display: block; }
+  </style>
+</head>
+<body>
+
+  <div class="header">
+    <h1>BIGBRAIN</h1>
+    <p>make it simple</p>
+  </div>
+
+  <p id="loading">Loading...</p>
+
+  <!-- LOGIN / SIGNUP -->
+  <div id="login-section" style="display:none">
+    <div class="card">
+      <div class="tabs">
+        <button class="tab active" id="tab-login" onclick="switchAuthTab('login')">Login</button>
+        <button class="tab" id="tab-signup" onclick="switchAuthTab('signup')">Sign Up</button>
+      </div>
+
+      <div id="login-form">
+        <input type="email" id="email" placeholder="Email" />
+        <input type="password" id="password" placeholder="Password" />
+        <button class="btn-primary" id="login-btn">Login</button>
+        <br>
+        <button class="forgot-password" id="forgot-btn">Forgot password?</button>
+      </div>
+
+      <div id="signup-form" style="display:none">
+        <input type="email" id="signup-email" placeholder="Email" />
+        <input type="password" id="signup-password" placeholder="Password" />
+        <button class="btn-primary" id="signup-btn">Create Account</button>
+      </div>
+
+      <button class="see-reviews-link" id="see-reviews-btn">⭐ See what people are saying</button>
+    </div>
+
+    <!-- READ-ONLY REVIEWS PREVIEW (no login required) -->
+    <div class="card" id="preview-reviews-card" style="display:none">
+      <button class="back-to-login-link" id="back-to-login-btn">← Back to login</button>
+      <div class="section-header">💬 What people are saying</div>
+      <div id="preview-reviews-list"><div class="empty-state">Loading reviews...</div></div>
+    </div>
+  </div>
+
+  <!-- MAIN APP (after login) -->
+  <div id="app" style="display:none">
+
+    <!-- PAGE: LOYALTY CARD -->
+    <div class="page-section active" id="page-loyalty">
+
+      <div class="visit-card">
+        <div class="label">Visits this cycle</div>
+        <div class="count" id="visit-count">0</div>
+        <div>
+          <span class="orange-dot"></span>
+          <span class="orange-dot"></span>
+          <span class="orange-dot"></span>
+        </div>
+        <div class="total" id="total-visits">Total visits: 0</div>
+      </div>
+
+      <div class="card">
+        <input type="text" id="code-input" placeholder="Enter your code..." style="text-transform:uppercase; margin-bottom:0" />
+        <br>
+        <button class="btn-primary" id="redeem-btn">Redeem Code</button>
+      </div>
+
+      <div class="card">
+        <div class="section-header">🏆 What you can earn</div>
+        <div id="tiers-list"><div class="empty-state">Loading...</div></div>
+      </div>
+
+      <div class="card">
+        <div class="section-header">🎁 Your Rewards</div>
+        <div id="rewards-list"><div class="empty-state">No rewards yet!</div></div>
+      </div>
+
+      <div class="card">
+        <div class="section-header">✅ Claimed</div>
+        <div id="claimed-list"><div class="empty-state">No claimed rewards yet!</div></div>
+      </div>
+
+      <button class="btn-danger" id="logout-btn">Log out</button>
+
+    </div>
+
+    <!-- PAGE: MENU -->
+    <div class="page-section" id="page-menu">
+      <div class="card">
+        <div class="section-header">🍽️ Our Menu</div>
+        <div id="menu-list"><div class="empty-state">Loading menu...</div></div>
+      </div>
+    </div>
+
+    <!-- PAGE: REVIEWS -->
+    <div class="page-section" id="page-reviews">
+
+      <div class="card">
+        <div class="section-header">⭐ Leave a Review</div>
+        <div class="star-input" id="star-input">
+          <span data-value="1">★</span>
+          <span data-value="2">★</span>
+          <span data-value="3">★</span>
+          <span data-value="4">★</span>
+          <span data-value="5">★</span>
+        </div>
+        <textarea id="review-comment" placeholder="Tell us what you think..."></textarea>
+        <button class="btn-primary" id="submit-review-btn">Submit Review</button>
+      </div>
+
+      <div class="card">
+        <div class="section-header">💬 What people are saying</div>
+        <div id="reviews-list"><div class="empty-state">Loading reviews...</div></div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- BOTTOM NAV -->
+  <div class="bottom-nav" id="bottom-nav" style="display:none">
+    <button class="nav-btn active" id="nav-loyalty" onclick="switchPage('loyalty')">
+      <span class="nav-icon">🎫</span>
+      <span class="nav-label">Loyalty</span>
+    </button>
+    <button class="nav-btn" id="nav-menu" onclick="switchPage('menu')">
+      <span class="nav-icon">🍽️</span>
+      <span class="nav-label">Menu</span>
+    </button>
+    <button class="nav-btn" id="nav-reviews" onclick="switchPage('reviews')">
+      <span class="nav-icon">⭐</span>
+      <span class="nav-label">Reviews</span>
+    </button>
+  </div>
+
+  <!-- CLAIM MODAL -->
+  <div id="claim-modal">
+    <div id="claim-box">
+      <h2 id="claim-title">🎁 Reward!</h2>
+      <div class="claim-date" id="claim-earned-date"></div>
+      <div class="claim-instruction">Ask staff to enter the claim password</div>
+      <input type="password" id="claim-password-input" placeholder="Staff password" />
+      <button class="btn-primary" id="claim-btn">Claim Reward</button>
+      <button class="btn-secondary" id="back-btn">Go Back</button>
+    </div>
+  </div>
+
+  <script>
+    const SUPABASE_URL = 'https://gnhnakfppfjhccousgds.supabase.co';
+    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImduaG5ha2ZwcGZqaGNjb3VzZ2RzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE0MjQwMDgsImV4cCI6MjA5NzAwMDAwOH0.-tkClG-l39YX7ATxdpfPHo5VF9aZAXQPU37FA_q7S0Y';
+
+    const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+    let selectedRewardId = null;
+    let currentUser = null;
+    let selectedStarRating = 0;
+
+    // ---------- AUTH TABS ----------
+    function switchAuthTab(tab) {
+      if (tab === 'login') {
+        document.getElementById('login-form').style.display = 'block';
+        document.getElementById('signup-form').style.display = 'none';
+        document.getElementById('tab-login').classList.add('active');
+        document.getElementById('tab-signup').classList.remove('active');
+      } else {
+        document.getElementById('login-form').style.display = 'none';
+        document.getElementById('signup-form').style.display = 'block';
+        document.getElementById('tab-login').classList.remove('active');
+        document.getElementById('tab-signup').classList.add('active');
+      }
+    }
+
+    function showReviewPreview() {
+      document.querySelector('#login-section .tabs').style.display = 'none';
+      document.getElementById('login-form').style.display = 'none';
+      document.getElementById('signup-form').style.display = 'none';
+      document.querySelector('#login-section .card').style.paddingBottom = '8px';
+      document.getElementById('preview-reviews-card').style.display = 'block';
+      loadPreviewReviews();
+    }
+
+    function hideReviewPreview() {
+      document.getElementById('preview-reviews-card').style.display = 'none';
+      document.querySelector('#login-section .tabs').style.display = 'flex';
+      switchAuthTab('login');
+    }
+
+    async function loadPreviewReviews() {
+      const { data } = await client
+        .from('reviews')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (!data || data.length === 0) {
+        document.getElementById('preview-reviews-list').innerHTML = '<div class="empty-state">No reviews yet — be the first!</div>';
+        return;
+      }
+
+      document.getElementById('preview-reviews-list').innerHTML = data.map(r => `
+        <div class="review-item">
+          <div class="review-stars">${'★'.repeat(r.rating)}${'☆'.repeat(5 - r.rating)}</div>
+          <div class="review-email">${maskEmail(r.email)}</div>
+          <div class="review-comment">${escapeHtml(r.comment)}</div>
+          <div class="review-date">${formatDate(r.created_at)}</div>
+        </div>
+      `).join('');
+    }
+
+    // ---------- BOTTOM NAV PAGES ----------
+    function switchPage(page) {
+      document.querySelectorAll('.page-section').forEach(el => el.classList.remove('active'));
+      document.querySelectorAll('.nav-btn').forEach(el => el.classList.remove('active'));
+
+      document.getElementById('page-' + page).classList.add('active');
+      document.getElementById('nav-' + page).classList.add('active');
+
+      if (page === 'menu') loadMenu();
+      if (page === 'reviews') loadReviews();
+    }
+
+    // ---------- INIT ----------
+    async function init() {
+      const { data: { session } } = await client.auth.getSession();
+      document.getElementById('loading').style.display = 'none';
+      if (session) {
+        currentUser = session.user;
+        showApp();
+      } else {
+        showLogin();
+      }
+    }
+
+    function showApp() {
+      document.getElementById('login-section').style.display = 'none';
+      document.getElementById('app').style.display = 'block';
+      document.getElementById('bottom-nav').style.display = 'flex';
+      loadCustomer(currentUser.email);
+      loadRewards(currentUser.email);
+      loadTiers();
+    }
+
+    function showLogin() {
+      document.getElementById('login-section').style.display = 'block';
+      document.getElementById('app').style.display = 'none';
+      document.getElementById('bottom-nav').style.display = 'none';
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+      document.getElementById('login-btn').addEventListener('click', login);
+      document.getElementById('signup-btn').addEventListener('click', signup);
+      document.getElementById('redeem-btn').addEventListener('click', redeemCode);
+      document.getElementById('logout-btn').addEventListener('click', logout);
+      document.getElementById('claim-btn').addEventListener('click', claimReward);
+      document.getElementById('back-btn').addEventListener('click', closeModal);
+      document.getElementById('forgot-btn').addEventListener('click', forgotPassword);
+      document.getElementById('submit-review-btn').addEventListener('click', submitReview);
+      document.getElementById('see-reviews-btn').addEventListener('click', showReviewPreview);
+      document.getElementById('back-to-login-btn').addEventListener('click', hideReviewPreview);
+
+      // star rating clicks
+      document.querySelectorAll('#star-input span').forEach(star => {
+        star.addEventListener('click', function() {
+          selectedStarRating = parseInt(this.getAttribute('data-value'));
+          document.querySelectorAll('#star-input span').forEach(s => {
+            s.classList.toggle('selected', parseInt(s.getAttribute('data-value')) <= selectedStarRating);
+          });
+        });
+      });
+
+      init();
+    });
+
+    // ---------- AUTH ----------
+    async function signup() {
+      const email = document.getElementById('signup-email').value;
+      const password = document.getElementById('signup-password').value;
+      const { error } = await client.auth.signUp({ email, password });
+      if (error) alert('Error: ' + error.message);
+      else alert('Account created! You can now log in 👍');
+    }
+
+    async function login() {
+      const email = document.getElementById('email').value;
+      const password = document.getElementById('password').value;
+      const { data, error } = await client.auth.signInWithPassword({ email, password });
+      if (error) { alert('Error: ' + error.message); return; }
+      currentUser = data.user;
+      showApp();
+    }
+
+    async function logout() {
+      await client.auth.signOut();
+      currentUser = null;
+      showLogin();
+    }
+
+    async function forgotPassword() {
+      const email = document.getElementById('email').value;
+      if (!email) { alert('Please enter your email first!'); return; }
+      const { error } = await client.auth.resetPasswordForEmail(email, {
+        redirectTo: 'https://eunoczar-jpg.github.io/loyalty-app/'
+      });
+      if (error) alert('Error: ' + error.message);
+      else alert('Password reset email sent! Check your inbox 📧');
+    }
+
+    // ---------- LOYALTY CARD ----------
+    async function loadCustomer(email) {
+      const { data, error } = await client
+        .from('customers')
+        .select('visits, total_visits')
+        .eq('email', email)
+        .single();
+
+      if (error || !data) {
+        await client.from('customers').insert({ email, visits: 0, total_visits: 0 });
+        document.getElementById('visit-count').textContent = 0;
+        document.getElementById('total-visits').textContent = 'Total visits: 0';
+      } else {
+        document.getElementById('visit-count').textContent = data.visits;
+        document.getElementById('total-visits').textContent = 'Total visits: ' + (data.total_visits || 0);
+      }
+    }
+
+    async function loadTiers() {
+      const { data } = await client
+        .from('reward_tiers')
+        .select('*')
+        .order('visits_required', { ascending: true });
+
+      if (!data || data.length === 0) {
+        document.getElementById('tiers-list').innerHTML = '<div class="empty-state">No rewards set up yet!</div>';
+        return;
+      }
+
+      document.getElementById('tiers-list').innerHTML = data.map(t => `
+        <div class="tier-item">
+          <div class="tier-emoji">${t.emoji}</div>
+          <div class="tier-info">
+            <strong>${t.description}</strong>
+            <small>Every ${t.visits_required} visits</small>
+          </div>
+          <div class="tier-badge">×${t.visits_required}</div>
+        </div>
+      `).join('');
+    }
+
+    async function loadRewards(email) {
+      const { data } = await client
+        .from('rewards')
+        .select('*')
+        .eq('email', email)
+        .order('earned_at', { ascending: true });
+
+      if (!data || data.length === 0) {
+        document.getElementById('rewards-list').innerHTML = '<div class="empty-state">No rewards yet!</div>';
+        document.getElementById('claimed-list').innerHTML = '<div class="empty-state">No claimed rewards yet!</div>';
+        return;
+      }
+
+      const unclaimed = data.filter(r => !r.claimed);
+      const claimed = data.filter(r => r.claimed);
+
+      document.getElementById('rewards-list').innerHTML = unclaimed.length === 0
+        ? '<div class="empty-state">No rewards yet!</div>'
+        : unclaimed.map(r => `
+            <div class="reward-item" onclick="openModal('${r.id}', '${r.earned_at}', '${r.description || 'Reward'}')">
+              <div class="reward-emoji">${r.emoji || '🎁'}</div>
+              <div class="reward-info">
+                <strong>${r.description || 'Reward'}</strong>
+                <small>Earned ${formatDate(r.earned_at)}</small>
+              </div>
+              <div class="reward-arrow">›</div>
+            </div>
+          `).join('');
+
+      document.getElementById('claimed-list').innerHTML = claimed.length === 0
+        ? '<div class="empty-state">No claimed rewards yet!</div>'
+        : claimed.map(r => `
+            <div class="claimed-item">
+              <div class="reward-emoji">${r.emoji || '🎁'}</div>
+              <div class="reward-info">
+                <strong>${r.description || 'Reward'}</strong>
+                <small>Earned ${formatDate(r.earned_at)} · Claimed ${formatDate(r.claimed_at)}</small>
+              </div>
+            </div>
+          `).join('');
+    }
+
+    function formatDate(dateStr) {
+      return new Date(dateStr).toLocaleDateString('en-GB', {
+        day: 'numeric', month: 'short', year: 'numeric'
+      });
+    }
+
+    function openModal(rewardId, earnedAt, description) {
+      selectedRewardId = rewardId;
+      document.getElementById('claim-title').textContent = description;
+      document.getElementById('claim-earned-date').textContent = 'Earned ' + formatDate(earnedAt);
+      document.getElementById('claim-password-input').value = '';
+      document.getElementById('claim-modal').classList.add('show');
+    }
+
+    function closeModal() {
+      selectedRewardId = null;
+      document.getElementById('claim-modal').classList.remove('show');
+    }
+
+    async function claimReward() {
+      if (!selectedRewardId) return;
+      const enteredPassword = document.getElementById('claim-password-input').value;
+      const { data: setting } = await client
+        .from('settings')
+        .select('value')
+        .eq('key', 'claim_password')
+        .single();
+      if (!setting || enteredPassword !== setting.value) {
+        alert('❌ Wrong password!');
+        return;
+      }
+      await client.from('rewards').update({
+        claimed: true,
+        claimed_at: new Date().toISOString()
+      }).eq('id', selectedRewardId);
+      closeModal();
+      alert('✅ Reward claimed!');
+      loadRewards(currentUser.email);
+    }
+
+    async function redeemCode() {
+      const userCode = document.getElementById('code-input').value.toUpperCase().trim();
+      if (!userCode) { alert('Please enter a code!'); return; }
+
+      const { data: codeData } = await client
+        .from('codes')
+        .select('*')
+        .eq('id', userCode)
+        .single();
+
+      if (!codeData) { alert('❌ Invalid code!'); return; }
+      if (codeData.used) { alert('❌ This code has already been used!'); return; }
+
+      const createdAt = new Date(codeData.created_at);
+      const now = new Date();
+      const diffMinutes = (now - createdAt) / 1000 / 60;
+      if (diffMinutes > 5) {
+        alert('❌ This code has expired! Please get a new one.');
+        return;
+      }
+
+      await client.from('codes').update({
+        used: true,
+        used_by: currentUser.email,
+        used_at: new Date().toISOString()
+      }).eq('id', userCode);
+
+      const { data: customer } = await client
+        .from('customers')
+        .select('*')
+        .eq('email', currentUser.email)
+        .single();
+
+      let newVisits = 1;
+      let newTotalVisits = 1;
+
+      if (customer) {
+        newTotalVisits = (customer.total_visits || 0) + 1;
+        newVisits = customer.visits >= 26 ? 1 : customer.visits + 1;
+        await client.from('customers')
+          .update({ visits: newVisits, total_visits: newTotalVisits })
+          .eq('email', currentUser.email);
+      } else {
+        await client.from('customers')
+          .insert({ email: currentUser.email, visits: 1, total_visits: 1 });
+      }
+
+      const { data: tiers } = await client.from('reward_tiers').select('*');
+      let earnedSomething = false;
+
+      if (tiers) {
+        for (const tier of tiers) {
+          if (newVisits % tier.visits_required === 0) {
+            await client.from('rewards').insert({
+              email: currentUser.email,
+              earned_at: new Date().toISOString(),
+              claimed: false,
+              description: tier.description,
+              emoji: tier.emoji
+            });
+            earnedSomething = true;
+            alert(`✅ Visit logged! AND you earned: ${tier.emoji} ${tier.description}!`);
+          }
+        }
+      }
+
+      if (!earnedSomething) {
+        alert('✅ Visit logged! Thanks for coming in!');
+      }
+
+      await client.from('archive').insert({
+        email: currentUser.email,
+        code: userCode,
+        visited_at: new Date().toISOString()
+      });
+
+      document.getElementById('code-input').value = '';
+      loadCustomer(currentUser.email);
+      loadRewards(currentUser.email);
+    }
+
+    // ---------- MENU ----------
+    async function loadMenu() {
+      const { data } = await client
+        .from('menu_items')
+        .select('*')
+        .order('category', { ascending: true });
+
+      if (!data || data.length === 0) {
+        document.getElementById('menu-list').innerHTML = '<div class="empty-state">Menu coming soon!</div>';
+        return;
+      }
+
+      // group by category
+      const grouped = {};
+      data.forEach(item => {
+        const cat = item.category || 'Other';
+        if (!grouped[cat]) grouped[cat] = [];
+        grouped[cat].push(item);
+      });
+
+      let html = '';
+      for (const category in grouped) {
+        html += `<div class="menu-category">${category}</div>`;
+        html += grouped[category].map(item => `
+          <div class="menu-item">
+            ${item.image_url ? `<img class="menu-item-img" src="${item.image_url}" alt="${item.name}" />` : ''}
+            <div class="menu-item-info">
+              <strong>${item.name}</strong>
+              ${item.description ? `<small>${item.description}</small>` : ''}
+            </div>
+            <div class="menu-item-price">${item.price}</div>
+          </div>
+        `).join('');
+      }
+
+      document.getElementById('menu-list').innerHTML = html;
+    }
+
+    // ---------- REVIEWS ----------
+    async function submitReview() {
+      const comment = document.getElementById('review-comment').value.trim();
+
+      if (selectedStarRating === 0) { alert('Please select a star rating!'); return; }
+      if (!comment) { alert('Please write a comment!'); return; }
+
+      await client.from('reviews').insert({
+        email: currentUser.email,
+        rating: selectedStarRating,
+        comment: comment,
+        created_at: new Date().toISOString()
+      });
+
+      alert('✅ Thanks for your review!');
+      document.getElementById('review-comment').value = '';
+      selectedStarRating = 0;
+      document.querySelectorAll('#star-input span').forEach(s => s.classList.remove('selected'));
+      loadReviews();
+    }
+
+    async function loadReviews() {
+      const { data } = await client
+        .from('reviews')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (!data || data.length === 0) {
+        document.getElementById('reviews-list').innerHTML = '<div class="empty-state">No reviews yet — be the first!</div>';
+        return;
+      }
+
+      document.getElementById('reviews-list').innerHTML = data.map(r => `
+        <div class="review-item">
+          <div class="review-stars">${'★'.repeat(r.rating)}${'☆'.repeat(5 - r.rating)}</div>
+          <div class="review-email">${maskEmail(r.email)}</div>
+          <div class="review-comment">${escapeHtml(r.comment)}</div>
+          <div class="review-date">${formatDate(r.created_at)}</div>
+        </div>
+      `).join('');
+    }
+
+    function maskEmail(email) {
+      const [name, domain] = email.split('@');
+      if (name.length <= 2) return email;
+      return name.substring(0, 2) + '***@' + domain;
+    }
+
+    function escapeHtml(str) {
+      const div = document.createElement('div');
+      div.textContent = str;
+      return div.innerHTML;
+    }
+  </script>
+
+</body>
+</html>
